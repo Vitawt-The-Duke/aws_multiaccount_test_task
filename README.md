@@ -106,14 +106,28 @@ credential_source = Environment
 
 ### 2. Configure Backend (Optional but Recommended)
 
-The project uses S3 + DynamoDB for remote state. Create a `backend.hcl` file in `envs/prod/`:
+The project uses S3 + DynamoDB for remote state. Copy the example file and customize:
+
+```bash
+cd envs/prod
+cp backend.hcl.example backend.hcl
+```
+
+Edit `backend.hcl` with your actual values:
 
 ```hcl
-bucket         = "your-terraform-state-bucket"
+bucket         = "tf-state-bucket"
 key            = "prod/iam/terraform.tfstate"
 region         = "eu-central-1"
 dynamodb_table = "terraform-state-lock"
 encrypt        = true
+profile        = "ACCOUNT_A"
+```
+
+Then initialize with:
+
+```bash
+terraform -chdir=envs/prod init -backend-config=backend.hcl
 ```
 
 Or use `-backend-config` flags during initialization.
@@ -134,7 +148,18 @@ account_a_id = "000000000000"  # Your actual Account A ID
 account_b_id = "111111111111"  # Your actual Account B ID
 region_a     = "eu-central-1"
 region_b     = "eu-central-1"
+
+# Security: Set pgp_key to encrypt console passwords (recommended)
+# Options: base64-encoded PGP key, "keybase:username", or "file://path/to/key.pub"
+pgp_key = "keybase:your_username"  # or leave empty (not recommended)
+
+# Console login profiles (default: false for security)
+# Only enable if pgp_key is set to avoid plaintext passwords in state
+create_console_login_denys = false
+create_console_login_ivan  = false
 ```
+
+**SECURITY WARNING**: If `pgp_key` is not set, console passwords will be stored in **plaintext** in Terraform state. This is a security risk. Always use PGP encryption for production environments.
 
 ### 4. Initialize Terraform
 
@@ -142,16 +167,28 @@ region_b     = "eu-central-1"
 # Using Makefile (recommended)
 make init
 
-# Or manually
-cd envs/prod
-terraform init
-
-# With backend configuration
+# With backend configuration file
 make init-backend
-# Or: terraform init -backend-config=backend.hcl
+
+# Or manually
+terraform -chdir=envs/prod init
+terraform -chdir=envs/prod init -backend-config=backend.hcl
 ```
 
-### 5. Plan and Apply
+### 5. Validate and Lint
+
+```bash
+# Format code
+make fmt
+
+# Validate configuration
+make validate
+
+# Run linter
+make lint
+```
+
+### 6. Plan and Apply
 
 ```bash
 # Review changes
@@ -274,10 +311,21 @@ terraform output -json
 ## Security Considerations
 
 1. **MFA Enforcement**: Console users (group2) must use MFA for all operations except MFA setup
-2. **Least Privilege**: CLI-only users have read-only access with explicit AssumeRole denial
+2. **Least Privilege**: CLI-only users have read-only access with explicit AssumeRole denial (except roleB)
 3. **Cross-Account Security**: roleC only trusts roleB, creating a controlled access path
-4. **S3 Bucket**: Private ACL with IAM-based access control (no public access)
+4. **S3 Bucket Security**:
+   - Private ACL with IAM-based access control (no public access)
+   - Public access block enabled
+   - Server-side encryption (AES256) enabled
+   - Versioning enabled
+   - TLS-only transport enforced via bucket policy
+   - Globally unique bucket name (random suffix)
 5. **State Security**: Use encrypted S3 backend with DynamoDB locking
+6. **Password Security**: 
+   - **CRITICAL**: Always set `pgp_key` variable to encrypt console passwords
+   - Without PGP encryption, passwords are stored in plaintext in Terraform state
+   - Default: `create_console_login_* = false` to prevent accidental plaintext storage
+7. **Prevent Destroy**: Critical IAM resources (roles, users) have `prevent_destroy = true` by default
 
 ## Troubleshooting
 

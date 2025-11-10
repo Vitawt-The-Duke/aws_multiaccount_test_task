@@ -11,6 +11,10 @@ terraform {
       # Explicitly require provider aliases to prevent accidental use of default provider
       configuration_aliases = [aws.a, aws.b]
     }
+    random = {
+      source  = "hashicorp/random"
+      version = ">= 3.0"
+    }
   }
 }
 

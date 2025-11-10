@@ -22,23 +22,20 @@ help: ## Show this help message
 init: ## Initialize Terraform with backend configuration
 	@echo "$(GREEN)Initializing Terraform...$(NC)"
 	@echo "$(YELLOW)Using profiles: ACCOUNT_A=$(ACCOUNT_A_PROFILE), ACCOUNT_B=$(ACCOUNT_B_PROFILE)$(NC)"
-	cd $(TERRAFORM_DIR) && \
-		AWS_PROFILE=$(ACCOUNT_A_PROFILE) terraform init
+	terraform -chdir=$(TERRAFORM_DIR) init
 
 init-backend: ## Initialize Terraform with backend config file (requires backend.hcl)
 	@echo "$(GREEN)Initializing Terraform with backend configuration...$(NC)"
 	@if [ ! -f $(TERRAFORM_DIR)/backend.hcl ]; then \
 		echo "$(RED)Error: backend.hcl not found in $(TERRAFORM_DIR)$(NC)"; \
-		echo "$(YELLOW)Create backend.hcl with your backend configuration$(NC)"; \
+		echo "$(YELLOW)Copy backend.hcl.example to backend.hcl and customize$(NC)"; \
 		exit 1; \
 	fi
-	cd $(TERRAFORM_DIR) && \
-		AWS_PROFILE=$(ACCOUNT_A_PROFILE) terraform init -backend-config=backend.hcl
+	terraform -chdir=$(TERRAFORM_DIR) init -backend-config=backend.hcl
 
 validate: ## Validate Terraform configuration
 	@echo "$(GREEN)Validating Terraform configuration...$(NC)"
-	cd $(TERRAFORM_DIR) && \
-		AWS_PROFILE=$(ACCOUNT_A_PROFILE) terraform validate
+	terraform -chdir=$(TERRAFORM_DIR) validate
 
 fmt: ## Format Terraform files
 	@echo "$(GREEN)Formatting Terraform files...$(NC)"
@@ -48,25 +45,23 @@ fmt-check: ## Check Terraform formatting without making changes
 	@echo "$(GREEN)Checking Terraform formatting...$(NC)"
 	terraform fmt -check -recursive
 
+lint: ## Run tflint
+	@echo "$(GREEN)Running tflint...$(NC)"
+	@if ! command -v tflint >/dev/null 2>&1; then \
+		echo "$(YELLOW)tflint not found. Installing...$(NC)"; \
+		tflint --init; \
+	fi
+	tflint --chdir=$(TERRAFORM_DIR)
+
 plan: ## Run Terraform plan
 	@echo "$(GREEN)Running Terraform plan...$(NC)"
 	@echo "$(YELLOW)Using profiles: ACCOUNT_A=$(ACCOUNT_A_PROFILE), ACCOUNT_B=$(ACCOUNT_B_PROFILE)$(NC)"
-	cd $(TERRAFORM_DIR) && \
-		AWS_PROFILE=$(ACCOUNT_A_PROFILE) \
-		AWS_PROFILE_B=$(ACCOUNT_B_PROFILE) \
-		terraform plan \
-		-var="account_a_profile=$(ACCOUNT_A_PROFILE)" \
-		-var="account_b_profile=$(ACCOUNT_B_PROFILE)"
+	terraform -chdir=$(TERRAFORM_DIR) plan
 
 plan-destroy: ## Run Terraform plan for destroy
 	@echo "$(GREEN)Running Terraform plan for destroy...$(NC)"
 	@echo "$(YELLOW)Using profiles: ACCOUNT_A=$(ACCOUNT_A_PROFILE), ACCOUNT_B=$(ACCOUNT_B_PROFILE)$(NC)"
-	cd $(TERRAFORM_DIR) && \
-		AWS_PROFILE=$(ACCOUNT_A_PROFILE) \
-		AWS_PROFILE_B=$(ACCOUNT_B_PROFILE) \
-		terraform plan -destroy \
-		-var="account_a_profile=$(ACCOUNT_A_PROFILE)" \
-		-var="account_b_profile=$(ACCOUNT_B_PROFILE)"
+	terraform -chdir=$(TERRAFORM_DIR) plan -destroy
 
 apply: ## Apply Terraform changes
 	@echo "$(GREEN)Applying Terraform changes...$(NC)"
@@ -74,23 +69,13 @@ apply: ## Apply Terraform changes
 	@read -p "$(YELLOW)Are you sure you want to apply? [y/N]$(NC) " -n 1 -r; \
 	echo; \
 	if [[ $$REPLY =~ ^[Yy]$$ ]]; then \
-		cd $(TERRAFORM_DIR) && \
-		AWS_PROFILE=$(ACCOUNT_A_PROFILE) \
-		AWS_PROFILE_B=$(ACCOUNT_B_PROFILE) \
-		terraform apply \
-		-var="account_a_profile=$(ACCOUNT_A_PROFILE)" \
-		-var="account_b_profile=$(ACCOUNT_B_PROFILE); \
+		terraform -chdir=$(TERRAFORM_DIR) apply; \
 	fi
 
 apply-auto: ## Apply Terraform changes without confirmation
 	@echo "$(GREEN)Applying Terraform changes (auto-approve)...$(NC)"
 	@echo "$(YELLOW)Using profiles: ACCOUNT_A=$(ACCOUNT_A_PROFILE), ACCOUNT_B=$(ACCOUNT_B_PROFILE)$(NC)"
-	cd $(TERRAFORM_DIR) && \
-		AWS_PROFILE=$(ACCOUNT_A_PROFILE) \
-		AWS_PROFILE_B=$(ACCOUNT_B_PROFILE) \
-		terraform apply -auto-approve \
-		-var="account_a_profile=$(ACCOUNT_A_PROFILE)" \
-		-var="account_b_profile=$(ACCOUNT_B_PROFILE)"
+	terraform -chdir=$(TERRAFORM_DIR) apply -auto-approve
 
 destroy: ## Destroy Terraform resources
 	@echo "$(RED)WARNING: This will destroy all resources!$(NC)"
@@ -100,22 +85,15 @@ destroy: ## Destroy Terraform resources
 		echo "$(YELLOW)Destroy cancelled$(NC)"; \
 		exit 1; \
 	fi
-	cd $(TERRAFORM_DIR) && \
-		AWS_PROFILE=$(ACCOUNT_A_PROFILE) \
-		AWS_PROFILE_B=$(ACCOUNT_B_PROFILE) \
-		terraform destroy \
-		-var="account_a_profile=$(ACCOUNT_A_PROFILE)" \
-		-var="account_b_profile=$(ACCOUNT_B_PROFILE)"
+	terraform -chdir=$(TERRAFORM_DIR) destroy
 
 output: ## Show Terraform outputs
 	@echo "$(GREEN)Showing Terraform outputs...$(NC)"
-	cd $(TERRAFORM_DIR) && \
-		AWS_PROFILE=$(ACCOUNT_A_PROFILE) terraform output
+	terraform -chdir=$(TERRAFORM_DIR) output
 
 output-json: ## Show Terraform outputs in JSON format
 	@echo "$(GREEN)Showing Terraform outputs (JSON)...$(NC)"
-	cd $(TERRAFORM_DIR) && \
-		AWS_PROFILE=$(ACCOUNT_A_PROFILE) terraform output -json
+	terraform -chdir=$(TERRAFORM_DIR) output -json
 
 clean: ## Clean Terraform files (.terraform, .terraform.lock.hcl)
 	@echo "$(GREEN)Cleaning Terraform files...$(NC)"

@@ -4,6 +4,7 @@
 # roleC: Service role with S3 access to aws-test-bucket
 # This role is assumed by roleB from Account A, enabling cross-account access
 # to S3 resources in Account B
+# Note: Bucket ARN uses conditional - if bucket is created, use actual bucket ID, otherwise use base name
 data "aws_iam_policy_document" "rolec_permissions" {
   provider = aws.b
 
@@ -15,8 +16,10 @@ data "aws_iam_policy_document" "rolec_permissions" {
     actions = [
       "s3:ListBucket"
     ]
-    resources = [
-      "arn:aws:s3:::${local.s3_bucket_name}"
+    resources = var.create_s3_bucket ? [
+      "arn:aws:s3:::${aws_s3_bucket.test_bucket[0].id}"
+    ] : [
+      "arn:aws:s3:::${var.s3_bucket_name}"
     ]
   }
 
@@ -32,8 +35,10 @@ data "aws_iam_policy_document" "rolec_permissions" {
       "s3:ListBucketMultipartUploads",
       "s3:AbortMultipartUpload"
     ]
-    resources = [
-      "arn:aws:s3:::${local.s3_bucket_name}/*"
+    resources = var.create_s3_bucket ? [
+      "arn:aws:s3:::${aws_s3_bucket.test_bucket[0].id}/*"
+    ] : [
+      "arn:aws:s3:::${var.s3_bucket_name}/*"
     ]
   }
 }
@@ -88,6 +93,10 @@ resource "aws_iam_role" "rolec" {
     Name        = "S3 Access Role"
     Description = "Provides S3 access to aws-test-bucket, assumed from Account A"
   }
+
+  lifecycle {
+    prevent_destroy = var.prevent_destroy
+  }
 }
 
 # Attach the permissions policy to roleC
@@ -99,13 +108,23 @@ resource "aws_iam_role_policy" "rolec_permissions" {
   policy   = data.aws_iam_policy_document.rolec_permissions.json
 }
 
+# Random string for unique bucket name
+# S3 bucket names must be globally unique, so we append a random suffix
+resource "random_string" "bucket_suffix" {
+  count   = var.create_s3_bucket ? 1 : 0
+  length  = 8
+  special = false
+  upper   = false
+}
+
 # S3 Bucket: aws-test-bucket
 # This bucket is created in Account B and accessed via roleC
 # Bucket creation is optional and controlled by the create_s3_bucket variable
+# Bucket name includes random suffix to ensure global uniqueness
 resource "aws_s3_bucket" "test_bucket" {
   count    = var.create_s3_bucket ? 1 : 0
   provider = aws.b
-  bucket   = local.s3_bucket_name
+  bucket   = var.create_s3_bucket ? "${var.s3_bucket_name}-${random_string.bucket_suffix[0].result}" : var.s3_bucket_name
 
   tags = {
     Name        = "Test Bucket"
@@ -165,10 +184,27 @@ resource "aws_s3_bucket_public_access_block" "test_bucket" {
   restrict_public_buckets = true
 }
 
+# Enable server-side encryption for the bucket
+# This ensures all objects are encrypted at rest
+resource "aws_s3_bucket_server_side_encryption_configuration" "test_bucket" {
+  count    = var.create_s3_bucket ? 1 : 0
+  provider = aws.b
+  bucket   = aws_s3_bucket.test_bucket[0].id
+
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm = "AES256"
+    }
+    bucket_key_enabled = true
+  }
+}
+
 # Bucket policy (minimal, does not broaden access)
 # This policy does not grant additional permissions beyond what roleC provides
-# It's included for completeness and can be used for additional restrictions if needed
+# It enforces security best practices: deny public access, deny non-TLS transport
+# Only created if bucket is created
 data "aws_iam_policy_document" "bucket_policy" {
+  count    = var.create_s3_bucket ? 1 : 0
   provider = aws.b
 
   # Deny all public access (defense in depth)
@@ -184,12 +220,35 @@ data "aws_iam_policy_document" "bucket_policy" {
       "s3:PutObject"
     ]
     resources = [
-      "arn:aws:s3:::${local.s3_bucket_name}/*"
+      "arn:aws:s3:::${aws_s3_bucket.test_bucket[0].id}/*"
     ]
     condition {
       test     = "StringNotEquals"
       variable = "aws:PrincipalAccount"
       values   = [var.account_b_id]
+    }
+  }
+
+  # Deny insecure (non-TLS) transport
+  # This ensures all S3 operations must use HTTPS/TLS
+  statement {
+    sid    = "DenyInsecureTransport"
+    effect = "Deny"
+    principals {
+      type        = "*"
+      identifiers = ["*"]
+    }
+    actions = [
+      "s3:*"
+    ]
+    resources = [
+      "arn:aws:s3:::${aws_s3_bucket.test_bucket[0].id}",
+      "arn:aws:s3:::${aws_s3_bucket.test_bucket[0].id}/*"
+    ]
+    condition {
+      test     = "Bool"
+      variable = "aws:SecureTransport"
+      values   = ["false"]
     }
   }
 }
@@ -198,6 +257,6 @@ resource "aws_s3_bucket_policy" "test_bucket" {
   count    = var.create_s3_bucket ? 1 : 0
   provider = aws.b
   bucket   = aws_s3_bucket.test_bucket[0].id
-  policy    = data.aws_iam_policy_document.bucket_policy.json
+  policy    = data.aws_iam_policy_document.bucket_policy[0].json
 }
 

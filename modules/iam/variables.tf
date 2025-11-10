@@ -60,3 +60,9 @@ variable "pgp_key" {
   default     = ""
 }
 
+variable "prevent_destroy" {
+  description = "Prevent accidental destruction of critical IAM resources (roles, users). Set to false for easier cleanup in non-production environments."
+  type        = bool
+  default     = true
+}
+

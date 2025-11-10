@@ -25,15 +25,15 @@ variable "region_b" {
 }
 
 variable "create_console_login_denys" {
-  description = "Whether to create console login profile for Denys_Platon"
+  description = "Whether to create console login profile for Denys_Platon. WARNING: If pgp_key is not set, passwords will be stored in plaintext in Terraform state."
   type        = bool
-  default     = true
+  default     = false
 }
 
 variable "create_console_login_ivan" {
-  description = "Whether to create console login profile for Ivan_Petrenko"
+  description = "Whether to create console login profile for Ivan_Petrenko. WARNING: If pgp_key is not set, passwords will be stored in plaintext in Terraform state."
   type        = bool
-  default     = true
+  default     = false
 }
 
 variable "role_b_allowed_assumers" {
@@ -83,5 +83,11 @@ variable "pgp_key" {
   description = "PGP key for encrypting console login passwords. Can be a base64-encoded PGP public key, 'keybase:username', or 'file://path/to/key.pub'. If not provided, passwords will be stored in plaintext in Terraform state (not recommended for production)."
   type        = string
   default     = ""
+}
+
+variable "prevent_destroy" {
+  description = "Prevent accidental destruction of critical IAM resources (roles, users). Set to false for easier cleanup in non-production environments."
+  type        = bool
+  default     = true
 }
 

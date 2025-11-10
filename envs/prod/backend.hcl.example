@@ -1,0 +1,14 @@
+# Example backend configuration file
+# Copy this file to backend.hcl and customize with your actual values
+# Then initialize with: terraform -chdir=envs/prod init -backend-config=backend.hcl
+
+bucket         = "tf-state-bucket"
+key            = "prod/iam/terraform.tfstate"
+region         = "eu-central-1"
+dynamodb_table = "terraform-state-lock"
+encrypt        = true
+profile        = "ACCOUNT_A"
+
+# Optional: Use KMS encryption for additional security
+# kms_key_id = "arn:aws:kms:eu-central-1:000000000000:key/your-key-id"
+

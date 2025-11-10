@@ -21,7 +21,7 @@ locals {
   policy_programmatic_readonly = "ProgrammaticReadOnly"
   policy_mfa_enforcement       = "MFAEnforcementPolicy"
   
-  # S3 bucket name
-  s3_bucket_name    = var.s3_bucket_name
+  # S3 bucket name - will be set with random suffix in role_account_b.tf if bucket is created
+  s3_bucket_name = var.s3_bucket_name
 }
 

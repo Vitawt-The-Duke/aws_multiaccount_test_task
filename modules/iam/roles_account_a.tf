@@ -4,13 +4,18 @@
 # roleA: Administrative role allowing all AWS services except IAM
 # This role uses NotAction to allow everything except IAM operations
 # 
-# IMPORTANT: Using NotAction with iam:* grants very broad permissions:
-# 1. It may trigger AWS policy size limits (max 6144 characters for inline policies)
-# 2. Some AWS services may have restrictions on NotAction usage
-# 3. It grants access to ALL AWS services except IAM, which may violate security policies
+# RATIONALE: Using NotAction: iam:* is the canonical way to grant "all services except IAM"
+# as required. While this grants very broad permissions, it's acceptable here because:
+# 1. This is an administrative role intended for power users (group2)
+# 2. The role explicitly excludes IAM operations, preventing privilege escalation
+# 3. Access is controlled via group membership and MFA enforcement
+# 4. The alternative (explicit allow-list) would be incomplete and harder to maintain
 #
-# However, this matches the requirement: "administrative role allowing all AWS services except IAM"
-# For production use, consider using a managed policy or further restricting permissions.
+# RISKS: This grants access to ALL AWS services except IAM, which may violate some
+# security policies. For production use, consider:
+# - Using AWS managed policies (e.g., PowerUserAccess) instead
+# - Further restricting to only necessary services
+# - Implementing additional conditions (e.g., IP restrictions, time-based access)
 data "aws_iam_policy_document" "rolea_permissions" {
   provider = aws.a
 
@@ -56,6 +61,10 @@ resource "aws_iam_role" "rolea" {
   tags = {
     Name        = "Administrative Role"
     Description = "Allows all AWS services except IAM operations"
+  }
+
+  lifecycle {
+    prevent_destroy = var.prevent_destroy
   }
 }
 
@@ -126,6 +135,10 @@ resource "aws_iam_role" "roleb" {
   tags = {
     Name        = "Cross-Account Bridge Role"
     Description = "Allows assumption of roleC in Account B"
+  }
+
+  lifecycle {
+    prevent_destroy = var.prevent_destroy
   }
 }
 

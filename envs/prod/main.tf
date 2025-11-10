@@ -26,6 +26,9 @@ module "iam" {
   # PGP key for password encryption
   pgp_key = var.pgp_key
 
+  # Prevent destroy lifecycle (toggleable)
+  prevent_destroy = var.prevent_destroy
+
   # Explicitly pass providers to ensure correct account targeting
   # This prevents accidental deployment to the wrong account
   providers = {

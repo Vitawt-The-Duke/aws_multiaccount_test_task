@@ -15,6 +15,10 @@ resource "aws_iam_user" "engine" {
     Description = "CLI-only user for engine operations"
     Type        = "CLI-only"
   }
+
+  lifecycle {
+    prevent_destroy = var.prevent_destroy
+  }
 }
 
 resource "aws_iam_user" "ci" {
@@ -26,6 +30,10 @@ resource "aws_iam_user" "ci" {
     Name        = "CI User"
     Description = "CLI-only user for CI/CD operations"
     Type        = "CLI-only"
+  }
+
+  lifecycle {
+    prevent_destroy = var.prevent_destroy
   }
 }
 
@@ -43,6 +51,10 @@ resource "aws_iam_user" "denys_platon" {
     Description = "Full user with console and programmatic access"
     Type        = "Full"
   }
+
+  lifecycle {
+    prevent_destroy = var.prevent_destroy
+  }
 }
 
 resource "aws_iam_user" "ivan_petrenko" {
@@ -54,6 +66,10 @@ resource "aws_iam_user" "ivan_petrenko" {
     Name        = "Ivan Petrenko"
     Description = "Full user with console and programmatic access"
     Type        = "Full"
+  }
+
+  lifecycle {
+    prevent_destroy = var.prevent_destroy
   }
 }
 
