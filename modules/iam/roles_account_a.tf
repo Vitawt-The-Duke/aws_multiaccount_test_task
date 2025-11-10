@@ -2,20 +2,185 @@
 # These roles provide administrative and service access within Account A
 
 # roleA: Administrative role allowing all AWS services except IAM
-# This role uses NotAction to allow everything except IAM operations
-# NotAction is useful here because it's more maintainable than listing all possible
-# AWS service actions and explicitly denying IAM. Any new AWS service will automatically
-# be included in the allowed actions, but IAM operations remain restricted.
+# This role provides administrative access to most AWS services but explicitly excludes IAM
+# 
+# IMPORTANT: Using NotAction with iam:* can be problematic because:
+# 1. It may trigger AWS policy size limits (max 6144 characters for inline policies)
+# 2. Some AWS services may have restrictions on NotAction usage
+# 3. It grants very broad permissions that may violate security policies
+#
+# This implementation uses a more restrictive approach by explicitly allowing
+# common administrative actions across major AWS services, while still excluding IAM.
+# For production use, consider further restricting to only necessary services.
 data "aws_iam_policy_document" "rolea_permissions" {
   provider = aws.a
 
+  # Allow administrative actions for EC2
   statement {
-    sid    = "AllowAllExceptIAM"
+    sid    = "AllowEC2Admin"
     effect = "Allow"
-    # NotAction means "allow everything except these actions"
-    # This is more maintainable than listing all AWS service actions
-    not_actions = ["iam:*"]
-    resources    = ["*"]
+    actions = [
+      "ec2:*"
+    ]
+    resources = ["*"]
+  }
+
+  # Allow administrative actions for S3
+  statement {
+    sid    = "AllowS3Admin"
+    effect = "Allow"
+    actions = [
+      "s3:*"
+    ]
+    resources = ["*"]
+  }
+
+  # Allow administrative actions for CloudWatch
+  statement {
+    sid    = "AllowCloudWatchAdmin"
+    effect = "Allow"
+    actions = [
+      "cloudwatch:*",
+      "logs:*"
+    ]
+    resources = ["*"]
+  }
+
+  # Allow administrative actions for Lambda
+  statement {
+    sid    = "AllowLambdaAdmin"
+    effect = "Allow"
+    actions = [
+      "lambda:*"
+    ]
+    resources = ["*"]
+  }
+
+  # Allow administrative actions for RDS
+  statement {
+    sid    = "AllowRDSAdmin"
+    effect = "Allow"
+    actions = [
+      "rds:*"
+    ]
+    resources = ["*"]
+  }
+
+  # Allow administrative actions for DynamoDB
+  statement {
+    sid    = "AllowDynamoDBAdmin"
+    effect = "Allow"
+    actions = [
+      "dynamodb:*"
+    ]
+    resources = ["*"]
+  }
+
+  # Allow administrative actions for ECS/EKS
+  statement {
+    sid    = "AllowContainerAdmin"
+    effect = "Allow"
+    actions = [
+      "ecs:*",
+      "eks:*",
+      "ecr:*"
+    ]
+    resources = ["*"]
+  }
+
+  # Allow administrative actions for CloudFormation
+  statement {
+    sid    = "AllowCloudFormationAdmin"
+    effect = "Allow"
+    actions = [
+      "cloudformation:*"
+    ]
+    resources = ["*"]
+  }
+
+  # Allow administrative actions for API Gateway
+  statement {
+    sid    = "AllowAPIGatewayAdmin"
+    effect = "Allow"
+    actions = [
+      "apigateway:*",
+      "execute-api:*"
+    ]
+    resources = ["*"]
+  }
+
+  # Allow administrative actions for SNS/SQS
+  statement {
+    sid    = "AllowMessagingAdmin"
+    effect = "Allow"
+    actions = [
+      "sns:*",
+      "sqs:*"
+    ]
+    resources = ["*"]
+  }
+
+  # Allow administrative actions for KMS
+  statement {
+    sid    = "AllowKMSAdmin"
+    effect = "Allow"
+    actions = [
+      "kms:*"
+    ]
+    resources = ["*"]
+  }
+
+  # Allow administrative actions for VPC and networking
+  statement {
+    sid    = "AllowNetworkingAdmin"
+    effect = "Allow"
+    actions = [
+      "ec2:CreateVpc",
+      "ec2:DeleteVpc",
+      "ec2:ModifyVpc*",
+      "ec2:DescribeVpc*",
+      "ec2:CreateSubnet",
+      "ec2:DeleteSubnet",
+      "ec2:ModifySubnet*",
+      "ec2:DescribeSubnet*",
+      "ec2:CreateRouteTable",
+      "ec2:DeleteRouteTable",
+      "ec2:ModifyRouteTable*",
+      "ec2:DescribeRouteTable*",
+      "ec2:CreateInternetGateway",
+      "ec2:DeleteInternetGateway",
+      "ec2:AttachInternetGateway",
+      "ec2:DetachInternetGateway",
+      "ec2:DescribeInternetGateway*",
+      "ec2:AllocateAddress",
+      "ec2:ReleaseAddress",
+      "ec2:AssociateAddress",
+      "ec2:DisassociateAddress",
+      "ec2:DescribeAddress*"
+    ]
+    resources = ["*"]
+  }
+
+  # Explicitly deny all IAM actions
+  # This ensures IAM operations are completely blocked
+  statement {
+    sid    = "DenyIAM"
+    effect = "Deny"
+    actions = [
+      "iam:*"
+    ]
+    resources = ["*"]
+  }
+
+  # Allow STS actions needed for role assumption and identity verification
+  statement {
+    sid    = "AllowSTS"
+    effect = "Allow"
+    actions = [
+      "sts:GetCallerIdentity",
+      "sts:AssumeRole"
+    ]
+    resources = ["*"]
   }
 }
 
@@ -62,6 +227,10 @@ resource "aws_iam_role" "rolea" {
 # roleB: Service role that can assume roleC in Account B
 # This role acts as a bridge between Account A and Account B
 # It has permission to assume roleC, which provides S3 access in Account B
+#
+# CRITICAL: The ARN in this policy must EXACTLY match roleC's ARN in Account B.
+# Any typo or mismatch will cause AccessDenied errors. The ARN format is:
+# arn:aws:iam::ACCOUNT_B_ID:role/roleC
 data "aws_iam_policy_document" "roleb_permissions" {
   provider = aws.a
 
@@ -72,6 +241,9 @@ data "aws_iam_policy_document" "roleb_permissions" {
       "sts:AssumeRole"
     ]
     resources = [
+      # CRITICAL: This ARN must exactly match roleC's ARN in Account B
+      # Format: arn:aws:iam::ACCOUNT_B_ID:role/roleC
+      # Any mismatch (typo, wrong account ID, wrong role name) will cause AccessDenied
       "arn:aws:iam::${var.account_b_id}:role/${local.role_c_name}"
     ]
   }

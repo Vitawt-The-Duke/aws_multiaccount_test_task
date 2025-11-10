@@ -102,6 +102,15 @@ resource "aws_iam_access_key" "ci" {
 # Console login profiles for full users
 # These create temporary passwords that must be changed on first login
 # Only create if the corresponding variable is true
+#
+# WARNING: Initial passwords are only available once during creation.
+# If the password is not retrieved immediately, it cannot be recovered.
+# Users must change their password on first login, and if they fail to do so,
+# the password may expire and require manual reset via AWS Console or CLI.
+#
+# Lifecycle management:
+# - Ignore changes to password after initial creation to prevent unnecessary updates
+# - This prevents Terraform from trying to recreate the login profile
 
 resource "aws_iam_user_login_profile" "denys_platon" {
   count                   = var.create_console_login_denys ? 1 : 0
@@ -109,6 +118,12 @@ resource "aws_iam_user_login_profile" "denys_platon" {
   user                    = aws_iam_user.denys_platon.name
   password_length         = 20
   password_reset_required = true
+
+  lifecycle {
+    # Ignore password changes after creation
+    # The password is only available during initial creation
+    ignore_changes = [password_length, password_reset_required]
+  }
 }
 
 resource "aws_iam_user_login_profile" "ivan_petrenko" {
@@ -117,5 +132,11 @@ resource "aws_iam_user_login_profile" "ivan_petrenko" {
   user                    = aws_iam_user.ivan_petrenko.name
   password_length         = 20
   password_reset_required = true
+
+  lifecycle {
+    # Ignore password changes after creation
+    # The password is only available during initial creation
+    ignore_changes = [password_length, password_reset_required]
+  }
 }
 

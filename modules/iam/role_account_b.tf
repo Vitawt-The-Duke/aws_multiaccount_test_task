@@ -46,6 +46,13 @@ data "aws_iam_policy_document" "rolec_permissions" {
 # 3. The principal assuming roleB must have permission to assume roleB
 # 
 # Flow: User/Service → roleB (Account A) → roleC (Account B) → S3 access
+#
+# CRITICAL: The ARN in this trust policy must EXACTLY match the ARN of roleB
+# Any typo or mismatch will cause AccessDenied errors. The ARN format is:
+# arn:aws:iam::ACCOUNT_ID:role/ROLE_NAME
+#
+# Note: We use local.role_b_name here, but the ARN must reference roleB in Account A.
+# Since roleB is created in Account A, we construct its ARN using account_a_id.
 data "aws_iam_policy_document" "rolec_trust" {
   provider = aws.b
 
@@ -53,11 +60,22 @@ data "aws_iam_policy_document" "rolec_trust" {
     sid    = "TrustRoleBFromAccountA"
     effect = "Allow"
     principals {
-      type        = "AWS"
-      identifiers = ["arn:aws:iam::${var.account_a_id}:role/${local.role_b_name}"]
+      type = "AWS"
+      # CRITICAL: This ARN must exactly match roleB's ARN in Account A
+      # Format: arn:aws:iam::ACCOUNT_A_ID:role/roleB
+      # Any mismatch (typo, wrong account ID, wrong role name) will cause AccessDenied
+      identifiers = [
+        "arn:aws:iam::${var.account_a_id}:role/${local.role_b_name}"
+      ]
     }
     actions = ["sts:AssumeRole"]
     # Optional: Add conditions for additional security (e.g., MFA, IP restrictions)
+    # Example condition:
+    # condition {
+    #   test     = "StringEquals"
+    #   variable = "sts:ExternalId"
+    #   values   = ["unique-external-id"]
+    # }
   }
 }
 
