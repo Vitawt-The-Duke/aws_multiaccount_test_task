@@ -1,0 +1,33 @@
+# Example Terraform variables file
+# Copy this file to terraform.tfvars and customize with your actual values
+# terraform.tfvars is automatically loaded by Terraform
+
+# Account IDs
+account_a_id = "000000000000"  # Management account
+account_b_id = "111111111111"  # Workload account (replace with actual account ID)
+
+# Regions
+region_a = "eu-central-1"  # Region for Account A resources
+region_b = "eu-central-1"  # Region for Account B resources
+
+# Console login configuration
+# Set to false to disable console login profile creation
+create_console_login_denys = true
+create_console_login_ivan  = true
+
+# Role assumption configuration
+# Additional ARNs that can assume roleB (beyond group1 members)
+# Example: ["arn:aws:iam::000000000000:user/someuser", "arn:aws:iam::000000000000:role/somerole"]
+role_b_allowed_assumers = []
+
+# S3 bucket configuration
+create_s3_bucket = true
+s3_bucket_name   = "aws-test-bucket"  # Must be globally unique
+
+# Backend configuration (if using variables for backend)
+# Note: Backend configuration typically requires -backend-config flags during init
+# backend_bucket         = "your-terraform-state-bucket"
+# backend_key            = "prod/iam/terraform.tfstate"
+# backend_region         = "eu-central-1"
+# backend_dynamodb_table = "terraform-state-lock"
+
