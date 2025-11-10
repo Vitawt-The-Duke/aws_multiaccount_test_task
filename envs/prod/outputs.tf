@@ -48,3 +48,13 @@ output "s3_bucket_arn" {
   value       = module.iam.s3_bucket_arn
 }
 
+output "denys_platon_access_key_id" {
+  description = "Access key ID for Denys_Platon user"
+  value       = module.iam.denys_platon_access_key_id
+}
+
+output "ivan_petrenko_access_key_id" {
+  description = "Access key ID for Ivan_Petrenko user"
+  value       = module.iam.ivan_petrenko_access_key_id
+}
+

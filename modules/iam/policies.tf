@@ -73,17 +73,23 @@ data "aws_iam_policy_document" "programmatic_readonly" {
     resources = ["*"]
   }
 
-  # Explicitly deny sts:AssumeRole by default
+  # Explicitly deny sts:AssumeRole by default, except for roleB
   # This ensures users cannot assume roles unless explicitly granted later
   # This is a key security control for CLI-only users
-  # Users can still assume roleB if they have the assume_roleb policy attached
+  # CRITICAL: We use NotResource to carve out an exception for roleB
+  # Without this exception, the explicit Deny would override the Allow policy
+  # that grants sts:AssumeRole on roleB, preventing group1 users from assuming it
   statement {
-    sid    = "DenyAssumeRole"
+    sid    = "DenyAssumeRoleExceptRoleB"
     effect = "Deny"
     actions = [
       "sts:AssumeRole"
     ]
-    resources = ["*"]
+    # Deny AssumeRole on all resources EXCEPT roleB
+    # This allows the explicit Allow policy for roleB to work
+    not_resources = [
+      "arn:aws:iam::${var.account_a_id}:role/${local.role_b_name}"
+    ]
   }
 }
 

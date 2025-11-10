@@ -19,16 +19,33 @@ output "ci_access_key_id" {
 # Initial console passwords for full users
 # These are sensitive outputs that should be handled carefully
 # Passwords are temporary and must be changed on first login
+# 
+# SECURITY NOTE: If pgp_key is set, passwords are encrypted and only encrypted_password
+# is available. You must decrypt using the corresponding private key.
+# If pgp_key is not set, plaintext passwords are stored in Terraform state (not recommended).
 output "denys_platon_initial_password" {
-  description = "Initial console password for Denys_Platon (temporary, must be changed on first login)"
-  value       = var.create_console_login_denys ? aws_iam_user_login_profile.denys_platon[0].password : null
+  description = "Initial console password for Denys_Platon (temporary, must be changed on first login). If pgp_key is set, this is the encrypted password that must be decrypted."
+  value       = var.create_console_login_denys ? (var.pgp_key != "" ? aws_iam_user_login_profile.denys_platon[0].encrypted_password : aws_iam_user_login_profile.denys_platon[0].password) : null
   sensitive   = true
 }
 
 output "ivan_petrenko_initial_password" {
-  description = "Initial console password for Ivan_Petrenko (temporary, must be changed on first login)"
-  value       = var.create_console_login_ivan ? aws_iam_user_login_profile.ivan_petrenko[0].password : null
+  description = "Initial console password for Ivan_Petrenko (temporary, must be changed on first login). If pgp_key is set, this is the encrypted password that must be decrypted."
+  value       = var.create_console_login_ivan ? (var.pgp_key != "" ? aws_iam_user_login_profile.ivan_petrenko[0].encrypted_password : aws_iam_user_login_profile.ivan_petrenko[0].password) : null
   sensitive   = true
+}
+
+# Access key IDs for full users (group2)
+output "denys_platon_access_key_id" {
+  description = "Access key ID for Denys_Platon user"
+  value       = aws_iam_access_key.denys_platon.id
+  sensitive   = false
+}
+
+output "ivan_petrenko_access_key_id" {
+  description = "Access key ID for Ivan_Petrenko user"
+  value       = aws_iam_access_key.ivan_petrenko.id
+  sensitive   = false
 }
 
 # Role ARNs

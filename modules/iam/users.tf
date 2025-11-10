@@ -99,12 +99,33 @@ resource "aws_iam_access_key" "ci" {
   user     = aws_iam_user.ci.name
 }
 
+# Access keys for full users (group2)
+# These users have both console and programmatic access
+# Access keys enable programmatic access for automation and CLI usage
+
+resource "aws_iam_access_key" "denys_platon" {
+  provider = aws.a
+  user     = aws_iam_user.denys_platon.name
+}
+
+resource "aws_iam_access_key" "ivan_petrenko" {
+  provider = aws.a
+  user     = aws_iam_user.ivan_petrenko.name
+}
+
 # Console login profiles for full users
 # These create temporary passwords that must be changed on first login
 # Only create if the corresponding variable is true
 #
+# SECURITY: If pgp_key is provided, passwords are encrypted and stored as encrypted_password.
+# If pgp_key is not provided, passwords are stored in plaintext in Terraform state (not recommended).
+# Options for pgp_key:
+# - Base64-encoded PGP public key
+# - "keybase:username" (uses Keybase public key)
+# - "file://path/to/key.pub" (reads from file)
+#
 # WARNING: Initial passwords are only available once during creation.
-# If the password is not retrieved immediately, it cannot be recovered.
+# If the password is not retrieved immediately and pgp_key is not set, it cannot be recovered.
 # Users must change their password on first login, and if they fail to do so,
 # the password may expire and require manual reset via AWS Console or CLI.
 #
@@ -118,11 +139,12 @@ resource "aws_iam_user_login_profile" "denys_platon" {
   user                    = aws_iam_user.denys_platon.name
   password_length         = 20
   password_reset_required = true
+  pgp_key                 = var.pgp_key != "" ? var.pgp_key : null
 
   lifecycle {
     # Ignore password changes after creation
     # The password is only available during initial creation
-    ignore_changes = [password_length, password_reset_required]
+    ignore_changes = [password_length, password_reset_required, pgp_key]
   }
 }
 
@@ -132,11 +154,12 @@ resource "aws_iam_user_login_profile" "ivan_petrenko" {
   user                    = aws_iam_user.ivan_petrenko.name
   password_length         = 20
   password_reset_required = true
+  pgp_key                 = var.pgp_key != "" ? var.pgp_key : null
 
   lifecycle {
     # Ignore password changes after creation
     # The password is only available during initial creation
-    ignore_changes = [password_length, password_reset_required]
+    ignore_changes = [password_length, password_reset_required, pgp_key]
   }
 }
 

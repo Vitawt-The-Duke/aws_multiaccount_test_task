@@ -23,6 +23,9 @@ module "iam" {
   create_s3_bucket = var.create_s3_bucket
   s3_bucket_name   = var.s3_bucket_name
 
+  # PGP key for password encryption
+  pgp_key = var.pgp_key
+
   # Explicitly pass providers to ensure correct account targeting
   # This prevents accidental deployment to the wrong account
   providers = {

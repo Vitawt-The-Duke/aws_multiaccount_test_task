@@ -84,16 +84,19 @@ resource "aws_iam_role" "rolec" {
   name               = local.role_c_name
   assume_role_policy = data.aws_iam_policy_document.rolec_trust.json
 
-  # Attach the permissions policy as an inline policy
-  inline_policy {
-    name   = "S3Access"
-    policy = data.aws_iam_policy_document.rolec_permissions.json
-  }
-
   tags = {
     Name        = "S3 Access Role"
     Description = "Provides S3 access to aws-test-bucket, assumed from Account A"
   }
+}
+
+# Attach the permissions policy to roleC
+# Using aws_iam_role_policy instead of deprecated inline_policy block
+resource "aws_iam_role_policy" "rolec_permissions" {
+  provider = aws.b
+  name     = "S3Access"
+  role     = aws_iam_role.rolec.id
+  policy   = data.aws_iam_policy_document.rolec_permissions.json
 }
 
 # S3 Bucket: aws-test-bucket
@@ -122,14 +125,44 @@ resource "aws_s3_bucket_versioning" "test_bucket" {
   }
 }
 
+# Configure bucket ownership controls
+# Modern S3 defaults (Object Ownership = BucketOwnerEnforced) disable ACLs
+# We need to set ownership to BucketOwnerPreferred to enable ACL usage
+# Alternatively, we could omit ACL entirely (bucket is private by default)
+resource "aws_s3_bucket_ownership_controls" "test_bucket" {
+  count    = var.create_s3_bucket ? 1 : 0
+  provider = aws.b
+  bucket   = aws_s3_bucket.test_bucket[0].id
+
+  rule {
+    object_ownership = "BucketOwnerPreferred"
+  }
+}
+
 # Set bucket ACL to private
 # This ensures the bucket is not publicly accessible
 # Access is controlled via IAM policies (roleC) rather than bucket policies
+# Note: With modern S3 defaults, ACLs are disabled unless ownership controls are set
 resource "aws_s3_bucket_acl" "test_bucket" {
   count    = var.create_s3_bucket ? 1 : 0
   provider = aws.b
   bucket   = aws_s3_bucket.test_bucket[0].id
   acl      = "private"
+
+  depends_on = [aws_s3_bucket_ownership_controls.test_bucket]
+}
+
+# Block public access to the bucket (defense in depth)
+# This provides additional security beyond the bucket policy
+resource "aws_s3_bucket_public_access_block" "test_bucket" {
+  count    = var.create_s3_bucket ? 1 : 0
+  provider = aws.b
+  bucket   = aws_s3_bucket.test_bucket[0].id
+
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
 }
 
 # Bucket policy (minimal, does not broaden access)

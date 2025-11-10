@@ -8,11 +8,7 @@ resource "aws_iam_group" "group1" {
   provider = aws.a
   name     = local.group_cli_only
   path     = "/"
-
-  tags = {
-    Name        = "CLI-only users"
-    Description = "Users with programmatic access only, no console login"
-  }
+  # Note: aws_iam_group does not support tags directly
 }
 
 # Group 2: Full users
@@ -22,10 +18,6 @@ resource "aws_iam_group" "group2" {
   provider = aws.a
   name     = local.group_full_users
   path     = "/"
-
-  tags = {
-    Name        = "Full users"
-    Description = "Users with console and programmatic access, MFA required"
-  }
+  # Note: aws_iam_group does not support tags directly
 }
 

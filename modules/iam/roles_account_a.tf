@@ -2,185 +2,26 @@
 # These roles provide administrative and service access within Account A
 
 # roleA: Administrative role allowing all AWS services except IAM
-# This role provides administrative access to most AWS services but explicitly excludes IAM
+# This role uses NotAction to allow everything except IAM operations
 # 
-# IMPORTANT: Using NotAction with iam:* can be problematic because:
+# IMPORTANT: Using NotAction with iam:* grants very broad permissions:
 # 1. It may trigger AWS policy size limits (max 6144 characters for inline policies)
 # 2. Some AWS services may have restrictions on NotAction usage
-# 3. It grants very broad permissions that may violate security policies
+# 3. It grants access to ALL AWS services except IAM, which may violate security policies
 #
-# This implementation uses a more restrictive approach by explicitly allowing
-# common administrative actions across major AWS services, while still excluding IAM.
-# For production use, consider further restricting to only necessary services.
+# However, this matches the requirement: "administrative role allowing all AWS services except IAM"
+# For production use, consider using a managed policy or further restricting permissions.
 data "aws_iam_policy_document" "rolea_permissions" {
   provider = aws.a
 
-  # Allow administrative actions for EC2
+  # Allow all actions except IAM
+  # NotAction means "allow everything except these actions"
+  # This is the canonical way to grant "all services except IAM"
   statement {
-    sid    = "AllowEC2Admin"
+    sid    = "AllowAllExceptIAM"
     effect = "Allow"
-    actions = [
-      "ec2:*"
-    ]
-    resources = ["*"]
-  }
-
-  # Allow administrative actions for S3
-  statement {
-    sid    = "AllowS3Admin"
-    effect = "Allow"
-    actions = [
-      "s3:*"
-    ]
-    resources = ["*"]
-  }
-
-  # Allow administrative actions for CloudWatch
-  statement {
-    sid    = "AllowCloudWatchAdmin"
-    effect = "Allow"
-    actions = [
-      "cloudwatch:*",
-      "logs:*"
-    ]
-    resources = ["*"]
-  }
-
-  # Allow administrative actions for Lambda
-  statement {
-    sid    = "AllowLambdaAdmin"
-    effect = "Allow"
-    actions = [
-      "lambda:*"
-    ]
-    resources = ["*"]
-  }
-
-  # Allow administrative actions for RDS
-  statement {
-    sid    = "AllowRDSAdmin"
-    effect = "Allow"
-    actions = [
-      "rds:*"
-    ]
-    resources = ["*"]
-  }
-
-  # Allow administrative actions for DynamoDB
-  statement {
-    sid    = "AllowDynamoDBAdmin"
-    effect = "Allow"
-    actions = [
-      "dynamodb:*"
-    ]
-    resources = ["*"]
-  }
-
-  # Allow administrative actions for ECS/EKS
-  statement {
-    sid    = "AllowContainerAdmin"
-    effect = "Allow"
-    actions = [
-      "ecs:*",
-      "eks:*",
-      "ecr:*"
-    ]
-    resources = ["*"]
-  }
-
-  # Allow administrative actions for CloudFormation
-  statement {
-    sid    = "AllowCloudFormationAdmin"
-    effect = "Allow"
-    actions = [
-      "cloudformation:*"
-    ]
-    resources = ["*"]
-  }
-
-  # Allow administrative actions for API Gateway
-  statement {
-    sid    = "AllowAPIGatewayAdmin"
-    effect = "Allow"
-    actions = [
-      "apigateway:*",
-      "execute-api:*"
-    ]
-    resources = ["*"]
-  }
-
-  # Allow administrative actions for SNS/SQS
-  statement {
-    sid    = "AllowMessagingAdmin"
-    effect = "Allow"
-    actions = [
-      "sns:*",
-      "sqs:*"
-    ]
-    resources = ["*"]
-  }
-
-  # Allow administrative actions for KMS
-  statement {
-    sid    = "AllowKMSAdmin"
-    effect = "Allow"
-    actions = [
-      "kms:*"
-    ]
-    resources = ["*"]
-  }
-
-  # Allow administrative actions for VPC and networking
-  statement {
-    sid    = "AllowNetworkingAdmin"
-    effect = "Allow"
-    actions = [
-      "ec2:CreateVpc",
-      "ec2:DeleteVpc",
-      "ec2:ModifyVpc*",
-      "ec2:DescribeVpc*",
-      "ec2:CreateSubnet",
-      "ec2:DeleteSubnet",
-      "ec2:ModifySubnet*",
-      "ec2:DescribeSubnet*",
-      "ec2:CreateRouteTable",
-      "ec2:DeleteRouteTable",
-      "ec2:ModifyRouteTable*",
-      "ec2:DescribeRouteTable*",
-      "ec2:CreateInternetGateway",
-      "ec2:DeleteInternetGateway",
-      "ec2:AttachInternetGateway",
-      "ec2:DetachInternetGateway",
-      "ec2:DescribeInternetGateway*",
-      "ec2:AllocateAddress",
-      "ec2:ReleaseAddress",
-      "ec2:AssociateAddress",
-      "ec2:DisassociateAddress",
-      "ec2:DescribeAddress*"
-    ]
-    resources = ["*"]
-  }
-
-  # Explicitly deny all IAM actions
-  # This ensures IAM operations are completely blocked
-  statement {
-    sid    = "DenyIAM"
-    effect = "Deny"
-    actions = [
-      "iam:*"
-    ]
-    resources = ["*"]
-  }
-
-  # Allow STS actions needed for role assumption and identity verification
-  statement {
-    sid    = "AllowSTS"
-    effect = "Allow"
-    actions = [
-      "sts:GetCallerIdentity",
-      "sts:AssumeRole"
-    ]
-    resources = ["*"]
+    not_actions = ["iam:*"]
+    resources    = ["*"]
   }
 }
 
@@ -212,16 +53,19 @@ resource "aws_iam_role" "rolea" {
   name               = local.role_a_name
   assume_role_policy = data.aws_iam_policy_document.rolea_trust.json
 
-  # Attach the permissions policy as an inline policy
-  inline_policy {
-    name   = "AdministrativeAccess"
-    policy = data.aws_iam_policy_document.rolea_permissions.json
-  }
-
   tags = {
     Name        = "Administrative Role"
     Description = "Allows all AWS services except IAM operations"
   }
+}
+
+# Attach the permissions policy to roleA
+# Using aws_iam_role_policy instead of deprecated inline_policy block
+resource "aws_iam_role_policy" "rolea_permissions" {
+  provider = aws.a
+  name     = "AdministrativeAccess"
+  role     = aws_iam_role.rolea.id
+  policy   = data.aws_iam_policy_document.rolea_permissions.json
 }
 
 # roleB: Service role that can assume roleC in Account B
@@ -260,8 +104,13 @@ data "aws_iam_policy_document" "roleb_trust" {
     sid    = "TrustAccountAPrincipals"
     effect = "Allow"
     principals {
-      type        = "AWS"
-      identifiers = ["arn:aws:iam::${var.account_a_id}:root"]
+      type = "AWS"
+      # Trust account root (for group-based access) and any additional principals
+      # specified via role_b_allowed_assumers variable
+      identifiers = concat(
+        ["arn:aws:iam::${var.account_a_id}:root"],
+        var.role_b_allowed_assumers
+      )
     }
     actions = ["sts:AssumeRole"]
     # The actual enforcement of who can assume is via policies attached
@@ -274,15 +123,18 @@ resource "aws_iam_role" "roleb" {
   name               = local.role_b_name
   assume_role_policy = data.aws_iam_policy_document.roleb_trust.json
 
-  # Attach the permissions policy as an inline policy
-  inline_policy {
-    name   = "AssumeRoleC"
-    policy = data.aws_iam_policy_document.roleb_permissions.json
-  }
-
   tags = {
     Name        = "Cross-Account Bridge Role"
     Description = "Allows assumption of roleC in Account B"
   }
+}
+
+# Attach the permissions policy to roleB
+# Using aws_iam_role_policy instead of deprecated inline_policy block
+resource "aws_iam_role_policy" "roleb_permissions" {
+  provider = aws.a
+  name     = "AssumeRoleC"
+  role     = aws_iam_role.roleb.id
+  policy   = data.aws_iam_policy_document.roleb_permissions.json
 }
 

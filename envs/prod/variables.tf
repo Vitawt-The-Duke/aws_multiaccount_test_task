@@ -79,3 +79,9 @@ variable "backend_dynamodb_table" {
   default     = ""
 }
 
+variable "pgp_key" {
+  description = "PGP key for encrypting console login passwords. Can be a base64-encoded PGP public key, 'keybase:username', or 'file://path/to/key.pub'. If not provided, passwords will be stored in plaintext in Terraform state (not recommended for production)."
+  type        = string
+  default     = ""
+}
+
